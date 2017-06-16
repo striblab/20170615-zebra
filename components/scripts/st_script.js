@@ -1,9 +1,25 @@
+$.urlParam = function(name){
+  var results = new RegExp('[\?&]' + name + '=([^&#]*)').exec(window.location.href);
+  if (results != null) { return results[1] || 0; }
+  else { return null; }
+}
+
+var selected = $.urlParam('chart');
+
+if (selected != null){
+$(".slide").hide();
+$("#" + selected).show();
+}
+
 d3.json('./data/invasion.geojson', function(error, invasion) {
 d3.json('./data/invasion.json', function(error, invasionList) {
 d3.json('./shapefiles/waters.json', function(error, waters) {
 d3.json('./shapefiles/extent.json', function(error, extent) {
+d3.json('./shapefiles/species.json', function(error, species) {
+d3.json('./data/lookup.json', function(error, lookup) {
 
 var dataAll = invasionList.waters;
+var dataLookup = lookup.targets;
 
 var bounds = [
     [-168.046875, 23.150462],// Southwest coordinates
@@ -30,6 +46,11 @@ map.on('load', function() {
   map.addSource('waters', {
    type: 'geojson',
    data: waters
+ });
+
+  map.addSource('species', {
+   type: 'geojson',
+   data: species
  });
 
   map.addSource('extent', {
@@ -59,6 +80,7 @@ function playScript(step){
 
   if (step == 0){
     hideLayer("waters");
+    hideLayer("species");
     unloadMarkers(1986, 2016);
 
     // var id = window.setTimeout(function() {}, 0);
@@ -73,6 +95,7 @@ function playScript(step){
   if (step == 1){
     hideLayer("extent");
     hideLayer("waters");
+    hideLayer("species");
     unloadMarkers(1991, 2016);
 
     // var id = window.setTimeout(function() {}, 0);
@@ -96,6 +119,7 @@ function playScript(step){
   if (step == 2){
     hideLayer("extent");
     hideLayer("waters");
+    hideLayer("species");
     unloadMarkers(1992, 2016);
 
     showMarkers(1991)
@@ -103,6 +127,7 @@ function playScript(step){
   }
   if (step == 3){
     hideLayer("extent");
+    hideLayer("species");
     unloadMarkers(1994, 2016);
 
     // var id = window.setTimeout(function() {}, 0);
@@ -142,6 +167,7 @@ function playScript(step){
   }
   if (step == 4){
     hideLayer("extent");
+    hideLayer("species");
     // unloadMarkers(1994, 2016);
 
     // var id = window.setTimeout(function() {}, 0);
@@ -180,6 +206,7 @@ function playScript(step){
   }
   if (step == 5){ 
     hideLayer("extent");
+    hideLayer("species");
     // unloadMarkers(1994, 2016);
 
     // var id = window.setTimeout(function() {}, 0);
@@ -218,6 +245,7 @@ function playScript(step){
   }
   if (step == 6){
     hideLayer("extent");
+    hideLayer("species");
     // unloadMarkers(1994, 2016);
 
     // var id = window.setTimeout(function() {}, 0);
@@ -226,6 +254,7 @@ function playScript(step){
     // }
 
     showLayer('waters');
+
     showMarkers(1992)
     setTimeout(function(){ showMarkers(1992); }, 200);
     setTimeout(function(){ showMarkers(1993); }, 400);
@@ -256,6 +285,7 @@ function playScript(step){
   }
   if (step == 7){
     hideLayer("extent");
+    hideLayer("waters");
     // unloadMarkers(1994, 2016);
 
     // var id = window.setTimeout(function() {}, 0);
@@ -263,7 +293,7 @@ function playScript(step){
     //     window.clearTimeout(id);
     // }
 
-    showLayer('waters');
+    showLayer('species');
     showMarkers(1992);
     setTimeout(function(){ showMarkers(1992); }, 200);
     setTimeout(function(){ showMarkers(1993); }, 400);
@@ -298,6 +328,7 @@ function playScript(step){
 
     hideLayer("extent");
     hideLayer('waters');
+    hideLayer('species');
 
     var interval = 800;
 
@@ -350,7 +381,7 @@ function plopLayer(data,color){
        'paint': {
            'fill-antialias' : true,
            'fill-opacity': 1,
-           'fill-color': '#b24e49',
+           'fill-color': color,
            'fill-outline-color': '#333333' 
      },
                   // "filter": [
@@ -368,8 +399,9 @@ function showLayer(data){
     map.setLayoutProperty(data + '-layer', 'visibility', 'visible');
 }
 
-plopLayer('extent','#333333');
-plopLayer('waters','#333333');
+plopLayer('extent','#b24e49');
+plopLayer('waters','#b24e49');
+plopLayer('species','#333333');
 
 function plopMarker(year,rgb,index){
 
@@ -474,9 +506,11 @@ function unloadMarkers(start, cap){
   }
 }
 
+var popup;
+
 function plopPopup(long,lat,text){
 
-var popup = new mapboxgl.Popup({closeOnClick: false})
+    popup = new mapboxgl.Popup({closeOnClick: false})
     .setLngLat([long,lat])
     .setHTML(text)
     .addTo(map);
@@ -542,20 +576,47 @@ for (var i = 0; i < toggleableLayerIds.length; i++) {
     };
 }
 
-function addLists(){
-d3.select("#listing").selectAll(".row")
-  .data(dataAll.filter(function(d){ return d.State == "MN"; })).enter().append("div")
-  .attr("class",function(d) { return "row"; })
-  .attr("latitude",function(d) { return d.Lat; })
-  .attr("longitude",function(d) { return d.Lon; })
-  .on("mousedown",function(d) {
-    map.flyTo({ center: [d.Lon, d.Lat], zoom:9 });
-  })
-  .html(function(d,i){ 
-    return "<div class='col name'>" + d.Locality + "</div><div class='col county'>" + d.County + "</div>";
-  });
+mapboxgl.accessToken = 'pk.eyJ1Ijoic2hhZG93ZmxhcmUiLCJhIjoiS3pwY1JTMCJ9.pTSXx_LFgR3XBpCNNxWPKA';
+var map2 = new mapboxgl.Map({
+    container: 'mapLookup', // container id
+    // style: 'mapbox://styles/shadowflare/ciqznymjs0009btm891qyu49n',
+    style: 'mapbox://styles/shadowflare/ciqzo0bu20004bknkbrhrm6wf',
+    center: [-96.954590,46.489884], 
+    zoom: 5.4,
+    minZoom: 4,
+    // maxBounds: bounds
+});
 
-$('#filter_box').on('keyup search', function(e){
+map2.addControl(new mapboxgl.NavigationControl());
+map2.scrollZoom.disable();
+
+map2.on('load', function() {
+
+  map2.addSource('waters', {
+   type: 'geojson',
+   data: waters
+ });
+
+  map2.addSource('species', {
+   type: 'geojson',
+   data: species
+ });
+
+  map2.addSource('extent', {
+   type: 'geojson',
+   data: extent
+ });
+
+  map2.addSource('invasion', {
+   type: 'geojson',
+   data: invasion
+ });
+
+var popup = new mapboxgl.Popup({closeOnClick: false});
+
+ $( function() {
+
+  $('#filter_box').on('keyup search', function(e){
     $('.row').hide();
     var txt = $('#filter_box').val();
     console.log(txt)
@@ -564,12 +625,267 @@ $('#filter_box').on('keyup search', function(e){
            $(this).show();
        }
     }); 
+    popup.remove();
+    zoom();
 });
 
+    var availableTags = [
+      "Zumbro River",
+      "Zumbro Lake",
+      "White Bear Lake",
+      "West Battle Lake",
+      "Watab Lake",
+      "Vadnais Lake",
+      "Upper Prior Lake",
+      "Upper Mississippi River National Wildlife and Fish Refuge",
+      "Taylor Lake",
+      "Sybill Lake",
+      "Sucker Lake",
+      "Sturgeon Lake",
+      "St. Louis River",
+      "St. Croix River",
+      "Signalness Lake",
+      "Sand Lake",
+      "Sallie Lake",
+      "Ruth Lake",
+      "Rusch Lake",
+      "Round Lake",
+      "Rose Lake",
+      "Rice Lake",
+      "Red River",
+      "Rebecca",
+      "Prairie Lake",
+      "Pocket Lake",
+      "Pleasant Lake",
+      "Pine River",
+      "Pike Lake",
+      "Pickerel Lake",
+      "Pelican Lake",
+      "Pelican Brook",
+      "Paul Lake",
+      "Otter Tail River",
+      "Otter Tail Lake",
+      "Ossawinnamakee Lake",
+      "North Union",
+      "North Long Lake",
+      "Mississippi River",
+      "Minnehaha Creek",
+      "Mille Lacs Lake",
+      "Maple Lake",
+      "Lower Prior Lake",
+      "Lower Hay Lake",
+      "Lower Cullen Lake",
+      "Little Sand Lake",
+      "Little McDonald Lake",
+      "Leech Lake",
+      "Lake Winnibigoshish",
+      "Lake Waconia",
+      "Lake Virginia",
+      "Lake Victoria",
+      "Lake Sylvia",
+      "Lake Superior",
+      "Lake Stony",
+      "Lake Stella",
+      "Lake Osakis",
+      "Lake Minnewaska",
+      "Lake Minnewashta",
+      "Lake Minnetonka",
+      "Lake Miltona",
+      "Lake Melissa",
+      "Lake Maud",
+      "Lake Mary",
+      "Lake Lizzie",
+      "Lake Le Homme Dieu in Alexandria",
+      "Lake John",
+      "Lake Irene",
+      "Lake Ida",
+      "Lake Hubert",
+      "Lake Hiawatha",
+      "Lake Geneva",
+      "Lake Franklin",
+      "Lake Florida",
+      "Lake Eunice",
+      "Lake Darling",
+      "Lake Cowdrey",
+      "Lake Carlos",
+      "Lake Brophy",
+      "Lake Andrew",
+      "Lake Adley",
+      "Lac Qui Parle",
+      "Kimble Lake",
+      "Kerbs Lake",
+      "Gull Lake",
+      "Green Lake",
+      "Gilbert Pit Lake",
+      "Gilbert Lake",
+      "Forest Lake",
+      "Fish Trap Lake",
+      "East Spirit Lake",
+      "Detroit Lake",
+      "Cuyuna Country State Recreation Area",
+      "Cross Lake",
+      "Crooked Lake",
+      "Clearwater Lake",
+      "Christmas Lake",
+      "Charley Lake",
+      "Cass Lake",
+      "Bryant Lake",
+      "Big Cormorant Lake",
+      "Big Birch Lake"
+    ];
+
+   $( "#filter_box" ).autocomplete({
+     minLength: 2,
+     source: availableTags,
+     select: function(e, ui) {
+       e.preventDefault();
+       $(this).val(ui.item.label);
+       zoomLake(ui.item.value);
+     }
+   });
+
+  });
+
+function zoomLake(lake){
+  for (var i=0; i < dataLookup.length; i++){
+    if (lake == dataLookup[i].target){
+      map2.flyTo({ center: [dataLookup[i].longitude, dataLookup[i].latitude], zoom:12 });
+      plopPopup(dataLookup[i].longitude,dataLookup[i].latitude,lake)
+      return;
+    }
+  }
 }
 
-addLists();
+function plopPopup(long,lat,text){
 
+    popup.setLngLat([long,lat])
+    .setHTML(text)
+    .addTo(map2);
+}
+
+function plopLayer(data,color){
+   map2.addLayer({
+       'id': data + '-layer',
+       'interactive': true,
+       'source': data,
+       'layout': {},
+       'type': 'fill',
+       'paint': {
+           'fill-antialias' : true,
+           'fill-opacity': 1,
+           'fill-color': color,
+           'fill-outline-color': '#333333' 
+     },
+                  // "filter": [
+                  // "==",
+                  // "commonname",
+                  // "zebra mussel"]
+   }, 'place-neighbourhood');
+}
+
+plopLayer('waters','#b24e49');
+
+function plopMarker(year,rgb,index){
+
+     cap = year;
+
+     var framesPerSecond = 15; 
+     var initialOpacity = 1
+     var opacity = initialOpacity;
+     var initialRadius = 5;
+     var radius = initialRadius;
+     var maxRadius = 18;
+
+      map2.addLayer({
+                  "id": "invasion-layer-" + year,
+                  "type": "circle",
+                  "source": "invasion",
+                  "paint": {
+                     "circle-radius": initialRadius,
+                     "circle-radius-transition": {duration: 0},
+                     "circle-opacity-transition": {duration: 0},
+                     "circle-color": 'rgba(' + rgb + ', 0.45)'
+                  },
+                  "filter": [
+                  "==",
+                  "collectionYear",
+                  year]
+                  // "filter":[ 
+                  // "==",
+                  // "Name",
+                  // species]
+      });
+
+            map2.addLayer({
+                  "id": "invasion-layer1-" + year,
+                  "type": "circle",
+                  "source": "invasion",
+                  "paint": {
+                      "circle-radius": initialRadius,
+                      "circle-color": 'rgba(' + rgb + ', 0.8)'
+                  },
+                  "filter": [
+                  "==",
+                  "collectionYear",
+                  year]
+                  // "filter":[ 
+                  // "==",
+                  // "Name",
+                  // species]
+      });
+
+function animateMarker(timestamp) {
+            setTimeout(function(){
+            requestAnimationFrame(animateMarker);
+
+            radius += (maxRadius - radius) / framesPerSecond;
+            opacity -= ( .9 / framesPerSecond );
+
+            if (opacity >= 0) {
+            map2.setPaintProperty('invasion-layer-' + year, 'circle-radius', radius);
+            map2.setPaintProperty('invasion-layer-' + year, 'circle-opacity', opacity);
+            }
+
+            if (opacity <= 0) {
+                radius = initialRadius;
+                opacity = initialOpacity;
+            } 
+
+        }, 2000 / framesPerSecond);
+    }
+
+      animateMarker(0);
+        
+    map2.setLayoutProperty('invasion-layer1-' + year, 'visibility', 'none');
+    map2.setLayoutProperty('invasion-layer-' + year, 'visibility', 'none');
+}
+
+function loadMarkers(){
+  for (var i=1986; i <= 2016; i++){
+    plopMarker(i,'178,78,73',i);
+    // plopMarker(i,'0,191,255',i);
+  }
+}
+
+loadMarkers();
+
+
+function zoom(){
+    if ($(window).width() <= 500) { map2.flyTo({ center: [-94,46], zoom: 4.5 }); }
+    else { map2.flyTo({ center: [-96.954590,46.489884], zoom: 5.4 }); }
+    $(window).resize(function() {
+    if ($(window).width() <= 500) { map2.flyTo({ center: [-94,46], zoom: 4.5 }); }
+    else { map2.flyTo({ center: [-96.954590,46.489884], zoom: 5.4 }); }
+    });
+    popup.remove();
+}
+
+zoom();
+
+});
+
+});
+});
 });
 });
 });
